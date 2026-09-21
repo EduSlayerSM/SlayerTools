@@ -87,6 +87,25 @@ button{cursor:pointer}
 @media(max-width:1280px){.split{grid-template-columns:260px minmax(0,1fr);}
   .split>.rightcol{grid-column:1/-1}}
 @media(max-width:860px){.split{grid-template-columns:1fr}}
+
+/* ===== INDEPENDENT SIDE-PANEL SCROLL =====
+   Left (tools) and right (properties) columns get their own scrollbar and
+   stay pinned while the canvas column scrolls. Without this the whole page
+   scrolled as one block. */
+.leftcol,.rightcol{min-width:0}
+.sidepane{
+  position:sticky; top:106px; align-self:start;
+  max-height:calc(100vh - 120px);
+  overflow-y:auto; overflow-x:hidden;
+  overscroll-behavior:contain;
+  padding-right:6px; scrollbar-gutter:stable;
+}
+.sidepane::-webkit-scrollbar{width:9px}
+.sidepane::-webkit-scrollbar-thumb{background:var(--line-2);border:2px solid var(--panel);border-radius:20px}
+.sidepane::-webkit-scrollbar-thumb:hover{background:var(--ink-3)}
+@media(max-width:1280px){.split>.rightcol.sidepane{position:static;max-height:none;overflow:visible;padding-right:0}}
+@media(max-width:860px){.split>.sidepane{position:static;max-height:none;overflow:visible;padding-right:0}}
+body.nopin .sidepane{position:static;max-height:none;overflow:visible;padding-right:0}
 @media(max-width:900px){.split2{grid-template-columns:1fr !important}}
 @media(max-width:640px){
   .page{padding:12px}
@@ -114,6 +133,9 @@ label.lb{display:block;font-size:11.5px;font-weight:500;color:var(--ink-3);margi
 .in:focus{border-color:var(--amber);background:#fff;box-shadow:0 0 0 3px var(--amber-soft)}
 .in[type=color]{padding:2px;height:32px;cursor:pointer}
 .in[type=range]{padding:0;background:none;border:none;accent-color:var(--amber);height:22px}
+textarea.in{resize:vertical;min-height:34px;line-height:1.45;white-space:pre-wrap}
+textarea.in.au{overflow:hidden;resize:none}
+.mini-lbl{font-size:10.5px;color:var(--ink-3);font-weight:600}
 .row{display:flex;gap:8px}
 .row>*{flex:1;min-width:0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -221,7 +243,7 @@ th{
 td{padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
 tr:hover td{background:var(--panel-2)}
 tr.bad td{background:var(--red-soft)}
-td.edit{cursor:text}
+td.edit{cursor:text;white-space:pre-wrap;min-width:90px;max-width:260px}
 td.edit:hover{box-shadow:inset 0 0 0 1px var(--line-2)}
 .thumb{
   width:30px;height:38px;object-fit:cover;border-radius:3px;border:1px solid var(--line);
@@ -447,7 +469,7 @@ table.coord tr.msel td{background:var(--blue-soft)}
   <div class="split">
 
     <!-- LEFT -->
-    <div>
+    <div class="leftcol sidepane">
       <div class="card">
         <div class="card-h">Card size</div>
         <div class="card-b">
@@ -557,6 +579,8 @@ table.coord tr.msel td{background:var(--blue-soft)}
           </div>
 
           <div class="sep"></div>
+          <div class="hint" style="margin-bottom:8px"><b>Tip:</b> element select karne ke baad right panel me
+          <b>Stretch</b> (text ki height/width) aur <b>Lines &amp; spacing</b> (max lines) ke controls milenge.</div>
           <div class="hint"><b>Student field</b> = har card pe badlega.<br><b>School field</b> = sab cards pe same.<br><b>Fixed text</b> = template me hi likha rahega.<br><b>Label + value</b> = "Class: 10-A" jaisa pair.</div>
         </div>
       </div>
@@ -598,6 +622,9 @@ table.coord tr.msel td{background:var(--blue-soft)}
           </label>
           <label class="hint" style="display:flex;gap:5px;align-items:center;cursor:pointer">
             <input type="checkbox" id="sampleOn" checked onchange="drawStage()"> Sample data
+          </label>
+          <label class="hint" style="display:flex;gap:5px;align-items:center;cursor:pointer" title="Side panels ko apna alag scrollbar do">
+            <input type="checkbox" id="pinPanels" checked onchange="document.body.classList.toggle('nopin', !this.checked)"> Pin side panels
           </label>
         </div>
       </div>
@@ -644,7 +671,7 @@ table.coord tr.msel td{background:var(--blue-soft)}
     </div>
 
     <!-- RIGHT -->
-    <div class="rightcol">
+    <div class="rightcol sidepane">
       <div class="card">
         <div class="card-h">
           <span>Properties</span>
@@ -1020,6 +1047,16 @@ table.coord tr.msel td{background:var(--blue-soft)}
   </div>
 </div>
 
+<div class="ovl" id="fieldOvl" onclick="if(event.target===this)closeFieldPicker()">
+  <div class="modal" style="width:min(360px,100%)">
+    <div class="card-h"><span id="fieldOvlTitle">Field chuno</span><button class="btn sm" onclick="closeFieldPicker()">Close</button></div>
+    <div class="card-b">
+      <div class="icon-grid" id="fieldOvlList" style="grid-template-columns:1fr 1fr"></div>
+      <div class="hint" id="fieldOvlEmpty" style="display:none;padding:10px 0">Ye saare fields already template me add ho chuke hain.</div>
+    </div>
+  </div>
+</div>
+
 <div class="ovl" id="imgOvl" onclick="if(event.target===this)closeImgPrompt()">
   <div class="modal" style="width:min(400px,100%)">
     <div class="card-h"><span>Naya image placeholder</span><button class="btn sm" onclick="closeImgPrompt()">Close</button></div>
@@ -1260,9 +1297,11 @@ function schoolImageFields(){
 const SAMPLE = {
   'Name':'Amar Bhardwaj','Student Name':'Amar Bhardwaj','Father Name':'Ramesh Chand',
   'Mother Name':'Sunita Sharma','Class':'10-A','Roll No':'A1024','Roll':'A1024',
-  'DOB':'14/08/2010','Blood Group':'B+','Address':'12, Civil Lines, Jaunpur','Phone':'98765 43210',
+  'DOB':'14/08/2010','Blood Group':'B+','Address':'43 Koiriyapar Distt-Mau','Phone':'98765 43210',
   'Mobile':'98765 43210','Session':'2025-26','Admission No':'2019/114','Village':'Jaunpur','ID':'A1024',
-  'Section':'A'
+  'Section':'A',
+  'Email':'school@example.com','Twitter':'@yourschool','Instagram':'@yourschool',
+  'Telegram':'@yourschool','Facebook':'facebook.com/yourschool'
 };
 function sampleFor(f){
   if(SAMPLE[f]) return SAMPLE[f];
@@ -1326,24 +1365,80 @@ function applyCaps(t, caps){
   if(caps === 'title') return String(t).replace(/\w\S*/g, w => w[0].toUpperCase() + w.slice(1).toLowerCase());
   return String(t);
 }
+/* Normalises every flavour of line break into a real \n:
+   - real newlines typed with Enter in the studio
+   - \r\n coming from Windows CSV files
+   - the two characters \ and n, which is how Excel users usually write a
+     break inside a cell, and also <br> pasted from the web
+   This is what makes "Enter = nayi line" work everywhere: fixed text,
+   school fields, student fields and imported sheets alike. */
+function normNL(t){
+  return String(t == null ? '' : t)
+    .replace(/\r\n?/g, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/\\n/g, '\n');
+}
+
+/* Returns {lines, hard}. hard[i] === true means line i ended because the
+   paragraph ended (Enter / end of text) rather than because it wrapped —
+   justify alignment must never stretch those. */
 function wrapLines(ctx, text, maxW, allowWrap){
-  const paras = String(text).split(/\r?\n/);
-  const out = [];
+  const paras = normNL(text).split('\n');
+  const out = [], hard = [];
   for(const p of paras){
-    if(!allowWrap){ out.push(p); continue; }
+    if(!allowWrap){ out.push(p); hard.push(true); continue; }
     const words = p.split(/\s+/).filter(Boolean);
-    if(!words.length){ out.push(''); continue; }
+    if(!words.length){ out.push(''); hard.push(true); continue; }
     let line = words[0];
     for(let i=1;i<words.length;i++){
       const t = line + ' ' + words[i];
       if(ctx.measureText(t).width <= maxW) line = t;
-      else { out.push(line); line = words[i]; }
+      else { out.push(line); hard.push(false); line = words[i]; }
     }
-    out.push(line);
+    out.push(line); hard.push(true);
   }
-  return out;
+  return {lines: out, hard};
 }
 function setLS(ctx, px){ try{ ctx.letterSpacing = px + 'px'; }catch(e){} }
+function setWS(ctx, px){ try{ ctx.wordSpacing = px + 'px'; }catch(e){} }
+
+/* CorelDraw-style non-uniform scaling. hs = horizontal %, vs = vertical %.
+   100/100 = untouched. vs is the "text ki height" control: it stretches or
+   squashes the glyphs without touching their width. */
+function hScale(el){ const v = el.hs == null ? 100 : +el.hs; return (isFinite(v) && v > 0 ? v : 100) / 100; }
+function vScale(el){ const v = el.vs == null ? 100 : +el.vs; return (isFinite(v) && v > 0 ? v : 100) / 100; }
+
+function hexA(hex, a){
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(String(hex || ''));
+  if(!m) return 'rgba(0,0,0,' + a + ')';
+  const n = parseInt(m[1], 16);
+  return 'rgba(' + ((n>>16)&255) + ',' + ((n>>8)&255) + ',' + (n&255) + ',' + a + ')';
+}
+function applyTextShadow(ctx, el, s){
+  if(!el.shadow){ ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0; return; }
+  ctx.shadowColor = hexA(el.shColor || '#000000', el.shA == null ? 0.42 : el.shA);
+  ctx.shadowBlur = Math.max(0, (el.shBlur == null ? 0.35 : el.shBlur) * s);
+  ctx.shadowOffsetX = (el.shX || 0) * s;
+  ctx.shadowOffsetY = (el.shY == null ? 0.2 : el.shY) * s;
+}
+function clearShadow(ctx){ ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0; }
+
+/* Draws one run of text at (px,py) with the element's outline, honouring the
+   non-uniform scale. Everything that paints text goes through here so the
+   height/width sliders behave identically on canvas, preview and print. */
+function drawRun(ctx, el, txt, px, py, hs, vs, s){
+  if(txt === '' || txt == null) return;
+  ctx.save();
+  ctx.translate(px, py);
+  if(hs !== 1 || vs !== 1) ctx.scale(hs, vs);
+  if(el.strokeW > 0 && el.strokeC){
+    ctx.lineWidth = (el.strokeW * s) / Math.max(0.05, Math.min(hs, vs));
+    ctx.strokeStyle = el.strokeC; ctx.lineJoin = 'round'; ctx.miterLimit = 2;
+    ctx.strokeText(txt, 0, 0);
+  }
+  ctx.fillText(txt, 0, 0);
+  ctx.restore();
+}
 
 /* ---------------- TEXT LAYOUT (shared by every renderer) ----------------
    Every measurement happens at one canonical scale (CANON px per mm) and the
@@ -1359,10 +1454,12 @@ function layoutText(ctx, el, raw, boxW, boxH, s){
   const boxWmm = boxW / s, boxHmm = boxH / s;
   const padXmm = el.padX || 0, padYmm = el.padY || 0;
   const lh = el.lh || 1.2;
-  const text = applyCaps(raw, el.caps);
+  const hs = hScale(el), vs = vScale(el);
+  const maxLines = Math.max(0, Math.round(el.maxLines || 0));
+  const text = applyCaps(normNL(raw), el.caps);
 
-  const key = [text, el.font, el.weight, el.italic ? 1 : 0, el.size, el.ls || 0, lh,
-               el.wrap !== false ? 1 : 0, el.fit, el.maxLines || 0,
+  const key = [text, el.font, el.weight, el.italic ? 1 : 0, el.size, el.ls || 0, el.ws || 0, lh,
+               el.wrap !== false ? 1 : 0, el.fit, maxLines, el.ellipsis ? 1 : 0, hs, vs,
                round(boxWmm, 2), round(boxHmm, 2), padXmm, padYmm].join('|');
 
   let hit = layoutCache.get(key);
@@ -1371,24 +1468,43 @@ function layoutText(ctx, el, raw, boxW, boxH, s){
     const innerH = Math.max(1, (boxHmm - padYmm*2) * CANON);
     const minSize = 0.6 * CANON;              // never shrink below 0.6 mm
     let size = Math.max(1, (el.size || 3) * CANON);
-    let lines;
+    let W = {lines:[text], hard:[true]};
     setLS(ctx, (el.ls || 0) * CANON);
-    for(let guard = 0; guard < 200; guard++){
+    setWS(ctx, (el.ws || 0) * CANON);
+    for(let guard = 0; guard < 300; guard++){
       ctx.font = fontStr(el, size);
-      lines = wrapLines(ctx, text, innerW, el.wrap !== false);
+      // the usable width is divided by the horizontal scale, so a stretched
+      // font breaks lines exactly where it will actually overflow
+      W = wrapLines(ctx, text, innerW / hs, el.wrap !== false);
       let widest = 0;
-      for(const l of lines) widest = Math.max(widest, ctx.measureText(l).width);
-      const totalH = lines.length * size * lh;
-      const overflow = (widest > innerW + 0.05) || (totalH > innerH + 0.05);
+      for(const l of W.lines) widest = Math.max(widest, ctx.measureText(l).width * hs);
+      const shown = maxLines > 0 ? Math.min(W.lines.length, maxLines) : W.lines.length;
+      const totalH = shown * size * lh * vs;
+      // "too many lines" counts as overflow, so Shrink-to-fit will keep
+      // reducing the size until the text really does fit in maxLines lines
+      const tooMany = maxLines > 0 && W.lines.length > maxLines;
+      const overflow = (widest > innerW + 0.05) || (totalH > innerH + 0.05) || tooMany;
       if(!overflow || el.fit !== 'shrink' || size <= minSize) break;
       size *= 0.975;
     }
-    if(el.fit === 'clip' && el.maxLines) lines = lines.slice(0, el.maxLines);
-    hit = {lines, sizeMm: size / CANON};
+    let lines = W.lines, hard = W.hard;
+    if(maxLines > 0 && lines.length > maxLines){
+      lines = lines.slice(0, maxLines);
+      hard = hard.slice(0, maxLines);
+      hard[hard.length - 1] = true;
+      if(el.ellipsis !== false){
+        ctx.font = fontStr(el, size);
+        let last = lines[lines.length - 1];
+        while(last.length > 1 && ctx.measureText(last + '…').width * hs > innerW) last = last.slice(0, -1);
+        lines[lines.length - 1] = last.replace(/\s+$/, '') + '…';
+      }
+    }
+    hit = {lines, hard, sizeMm: size / CANON};
     if(layoutCache.size > 3000) layoutCache.clear();
     layoutCache.set(key, hit);
   }
-  return {lines: hit.lines, size: hit.sizeMm * s, lh, padX: padXmm * s, padY: padYmm * s};
+  return {lines: hit.lines, hard: hit.hard, size: hit.sizeMm * s, lh,
+          padX: padXmm * s, padY: padYmm * s, hs, vs};
 }
 
 /* ---- Pair (label + value) layout: label and value keep independent fonts/
@@ -1402,9 +1518,10 @@ function layoutPair(ctx, el, labelTxt, valTxt, boxWmm, boxHmm){
   const labelItalic = el.labelItalic != null ? el.labelItalic : el.italic;
   const labelSize0 = el.labelSize != null ? el.labelSize : el.size;
 
+  const hs = hScale(el), vs = vScale(el);
   const key = [labelTxt, valTxt, labelFont, labelWeight, labelItalic ? 1 : 0, labelSize0,
-               el.font, el.weight, el.italic ? 1 : 0, el.size, el.ls || 0, lh, el.fit,
-               round(boxWmm, 2), round(boxHmm, 2), padXmm, padYmm].join('|');
+               el.font, el.weight, el.italic ? 1 : 0, el.size, el.ls || 0, el.ws || 0, lh, el.fit,
+               hs, vs, round(boxWmm, 2), round(boxHmm, 2), padXmm, padYmm].join('|');
 
   let hit = pairLayoutCache.get(key);
   if(!hit){
@@ -1415,13 +1532,14 @@ function layoutPair(ctx, el, labelTxt, valTxt, boxWmm, boxHmm){
     let labelPx = Math.max(1, (labelSize0 || el.size || 3) * CANON);
     const ratio = labelPx / valPx;
     setLS(ctx, (el.ls || 0) * CANON);
+    setWS(ctx, (el.ws || 0) * CANON);
     for(let guard = 0; guard < 200; guard++){
       ctx.font = fontStr({font:labelFont, weight:labelWeight, italic:labelItalic}, labelPx);
       const lw = labelTxt ? ctx.measureText(labelTxt).width : 0;
       ctx.font = fontStr(el, valPx);
       const vw = valTxt ? ctx.measureText(valTxt).width : 0;
-      const totalW = lw + vw;
-      const totalH = Math.max(labelPx, valPx) * lh;
+      const totalW = (lw + vw) * hs;
+      const totalH = Math.max(labelPx, valPx) * lh * vs;
       const overflow = (totalW > innerW + 0.05) || (totalH > innerH + 0.05);
       if(!overflow || el.fit !== 'shrink' || Math.min(labelPx, valPx) <= minSize) break;
       valPx *= 0.975; labelPx = valPx * ratio;
@@ -1439,8 +1557,8 @@ function layoutPair(ctx, el, labelTxt, valTxt, boxWmm, boxHmm){
 function drawPair(ctx, el, stu, useSample, x, y, w, h, s){
   const v = truncateMax(valueFor(el, stu, useSample), el.maxChars);
   const sep = el.sepText == null ? ': ' : el.sepText;
-  const labelTxt = applyCaps((el.label || '') + sep, el.caps);
-  const valTxt = applyCaps((el.prefix || '') + v + (el.suffix || ''), el.caps);
+  const labelTxt = applyCaps(normNL((el.label || '') + sep).replace(/\n/g, ' '), el.caps);
+  const valTxt = applyCaps(normNL((el.prefix || '') + v + (el.suffix || '')).replace(/\n/g, ' '), el.caps);
   if(labelTxt === '' && valTxt === '') return;
 
   const boxWmm = w / s, boxHmm = h / s;
@@ -1448,22 +1566,26 @@ function drawPair(ctx, el, stu, useSample, x, y, w, h, s){
   const Lp = layoutPair(ctx, el, labelTxt, valTxt, boxWmm, boxHmm);
   const labelSize = Lp.labelSizeMm * s, valSize = Lp.valSizeMm * s;
   const lh = el.lh || 1.2;
+  const hs = hScale(el), vs = vScale(el);
 
   const labelFont = el.labelFont || el.font;
   const labelWeight = el.labelWeight || el.weight;
   const labelItalic = el.labelItalic != null ? el.labelItalic : el.italic;
   const labelColor = el.labelColor || el.color || '#16222F';
   const valColor = el.color || '#16222F';
+  const labelEl = {font:labelFont, weight:labelWeight, italic:labelItalic,
+                   strokeW:el.strokeW, strokeC:el.strokeC};
 
   ctx.save();
   rrPath(ctx, x, y, w, h, (el.radius || 0) * s); ctx.clip();
   ctx.textBaseline = 'alphabetic';
   setLS(ctx, (el.ls || 0) * s);
+  setWS(ctx, (el.ws || 0) * s);
 
-  ctx.font = fontStr({font:labelFont, weight:labelWeight, italic:labelItalic}, labelSize);
-  const labelW = labelTxt ? ctx.measureText(labelTxt).width : 0;
+  ctx.font = fontStr(labelEl, labelSize);
+  const labelW = (labelTxt ? ctx.measureText(labelTxt).width : 0) * hs;
   ctx.font = fontStr(el, valSize);
-  const valW = valTxt ? ctx.measureText(valTxt).width : 0;
+  const valW = (valTxt ? ctx.measureText(valTxt).width : 0) * hs;
 
   // If a fixed label column is set, the value always starts at that column
   // (not right after the label's own width) — this is what makes values on
@@ -1473,50 +1595,228 @@ function drawPair(ctx, el, stu, useSample, x, y, w, h, s){
   const labelSpan = colW > 0 ? Math.max(colW, labelW) : labelW;
 
   const baseSize = Math.max(labelSize, valSize);
-  const blockH = baseSize * lh;
+  const blockH = baseSize * lh * vs;
   let startY;
   if(el.valign === 'top') startY = y + padY;
   else if(el.valign === 'bottom') startY = y + h - padY - blockH;
   else startY = y + (h - blockH)/2;
+  startY += (el.dy || 0) * s;
 
   const totalW = labelSpan + valW;
   let startX;
   if(el.align === 'center') startX = x + (w - totalW)/2;
   else if(el.align === 'right') startX = x + w - padX - totalW;
   else startX = x + padX;
+  startX += (el.dx || 0) * s;
 
-  const ly = startY + baseSize*0.80;
+  const ly = startY + baseSize * 0.80 * vs;
 
-  if(el.shadow){
-    ctx.shadowColor = 'rgba(0,0,0,.42)';
-    ctx.shadowBlur = Math.max(1, 0.35*s);
-    ctx.shadowOffsetY = Math.max(0.5, 0.2*s);
-  }
+  applyTextShadow(ctx, el, s);
 
-  let cx = startX;
   if(labelTxt){
-    ctx.font = fontStr({font:labelFont, weight:labelWeight, italic:labelItalic}, labelSize);
-    if(el.strokeW > 0 && el.strokeC){ ctx.lineWidth = el.strokeW*s; ctx.strokeStyle = el.strokeC; ctx.lineJoin = 'round'; ctx.strokeText(labelTxt, cx, ly); }
+    ctx.font = fontStr(labelEl, labelSize);
     ctx.fillStyle = labelColor;
-    ctx.fillText(labelTxt, cx, ly);
+    drawRun(ctx, labelEl, labelTxt, startX, ly, hs, vs, s);
   }
-  cx = startX + labelSpan;
   if(valTxt){
     ctx.font = fontStr(el, valSize);
-    if(el.strokeW > 0 && el.strokeC){ ctx.lineWidth = el.strokeW*s; ctx.strokeStyle = el.strokeC; ctx.lineJoin = 'round'; ctx.strokeText(valTxt, cx, ly); }
     ctx.fillStyle = valColor;
-    ctx.fillText(valTxt, cx, ly);
+    drawRun(ctx, el, valTxt, startX + labelSpan, ly, hs, vs, s);
+  }
+  clearShadow(ctx);
+
+  if(el.underline || el.strike){
+    ctx.strokeStyle = valColor;
+    ctx.lineWidth = Math.max(0.35, el.ulW ? el.ulW * s : baseSize * 0.06);
+    if(el.underline){
+      const uy = ly + (el.ulOff == null ? baseSize * 0.16 * vs : el.ulOff * s);
+      ctx.beginPath(); ctx.moveTo(startX, uy); ctx.lineTo(startX + totalW, uy); ctx.stroke();
+    }
+    if(el.strike){
+      const sy = ly - baseSize * 0.30 * vs;
+      ctx.beginPath(); ctx.moveTo(startX, sy); ctx.lineTo(startX + totalW, sy); ctx.stroke();
+    }
   }
   ctx.restore();
+}
 
-  if(el.underline){
-    ctx.save();
-    ctx.strokeStyle = valColor;
-    ctx.lineWidth = Math.max(0.5, baseSize*0.06);
-    const uy = startY + baseSize*0.94;
-    ctx.beginPath(); ctx.moveTo(startX, uy); ctx.lineTo(startX + totalW, uy); ctx.stroke();
-    ctx.restore();
+/* ---- Wrapped pair: label and value keep their own font/size/colour even
+   across several lines. Every word remembers which side it came from, the
+   two are word-wrapped together as one flowing line of text, and each word
+   is painted with its own style — this is what "Address" (long value, short
+   label) needs when "Wrap lines" is turned on. ---- */
+const pairWrapCache = new Map();
+function layoutPairWrap(ctx, el, labelTxt, valTxt, boxWmm, boxHmm){
+  const padXmm = el.padX || 0, padYmm = el.padY || 0;
+  const lh = el.lh || 1.2;
+  const labelFont = el.labelFont || el.font;
+  const labelWeight = el.labelWeight || el.weight;
+  const labelItalic = el.labelItalic != null ? el.labelItalic : el.italic;
+  const labelSize0 = el.labelSize != null ? el.labelSize : el.size;
+  const maxLines = Math.max(0, Math.round(el.maxLines || 0));
+  const hs = hScale(el), vs = vScale(el);
+
+  const key = [labelTxt, valTxt, labelFont, labelWeight, labelItalic ? 1 : 0, labelSize0,
+               el.font, el.weight, el.italic ? 1 : 0, el.size, el.ls || 0, el.ws || 0, lh, el.fit,
+               maxLines, el.ellipsis !== false ? 1 : 0, hs, vs,
+               round(boxWmm, 2), round(boxHmm, 2), padXmm, padYmm].join('|');
+
+  let hit = pairWrapCache.get(key);
+  if(!hit){
+    const innerW = Math.max(1, (boxWmm - padXmm*2) * CANON);
+    const innerH = Math.max(1, (boxHmm - padYmm*2) * CANON);
+    const minSize = 0.6 * CANON;
+    let valPx = Math.max(1, (el.size || 3) * CANON);
+    let labelPx = Math.max(1, (labelSize0 || el.size || 3) * CANON);
+    const ratio = labelPx / valPx;
+
+    const words = [
+      ...(labelTxt.trim() ? labelTxt.trim().split(/\s+/) : []).map(t => ({text:t, style:'label'})),
+      ...(valTxt.trim() ? valTxt.trim().split(/\s+/) : []).map(t => ({text:t, style:'value'}))
+    ];
+
+    setLS(ctx, (el.ls || 0) * CANON);
+    setWS(ctx, (el.ws || 0) * CANON);
+
+    let lines = [[]];
+    for(let guard = 0; guard < 200; guard++){
+      const labelFontStr = fontStr({font:labelFont, weight:labelWeight, italic:labelItalic}, labelPx);
+      const valFontStr = fontStr(el, valPx);
+      const wUsable = innerW / hs;
+      lines = [[]];
+      let curW = 0;
+      for(const wd of words){
+        ctx.font = wd.style === 'label' ? labelFontStr : valFontStr;
+        const ww = ctx.measureText(wd.text).width;
+        const cur = lines[lines.length - 1];
+        const sp = cur.length ? ctx.measureText(' ').width : 0;
+        if(cur.length && curW + sp + ww > wUsable){ lines.push([wd]); curW = ww; }
+        else { cur.push(wd); curW += sp + ww; }
+      }
+
+      let widest = 0;
+      for(const line of lines){
+        let lw = 0;
+        for(let i = 0; i < line.length; i++){
+          ctx.font = line[i].style === 'label' ? labelFontStr : valFontStr;
+          lw += ctx.measureText(line[i].text).width;
+          if(i > 0) lw += ctx.measureText(' ').width;
+        }
+        widest = Math.max(widest, lw * hs);
+      }
+      const shownLines = maxLines > 0 ? Math.min(lines.length, maxLines) : lines.length;
+      const totalH = shownLines * Math.max(labelPx, valPx) * lh * vs;
+      const tooMany = maxLines > 0 && lines.length > maxLines;
+      const overflow = (widest > innerW + 0.05) || (totalH > innerH + 0.05) || tooMany;
+      if(!overflow || el.fit !== 'shrink' || Math.min(labelPx, valPx) <= minSize) break;
+      valPx *= 0.975; labelPx = valPx * ratio;
+    }
+
+    if(maxLines > 0 && lines.length > maxLines){
+      lines = lines.slice(0, maxLines);
+      if(el.ellipsis !== false && lines.length && lines[lines.length-1].length){
+        const last = lines[lines.length - 1];
+        const lastWord = last[last.length - 1];
+        last[last.length - 1] = {text: lastWord.text.replace(/[.,;:]+$/, '') + '…', style: lastWord.style};
+      }
+    }
+
+    hit = {lines, labelSizeMm: labelPx / CANON, valSizeMm: valPx / CANON};
+    if(pairWrapCache.size > 2000) pairWrapCache.clear();
+    pairWrapCache.set(key, hit);
   }
+  return hit;
+}
+
+function drawPairWrapped(ctx, el, stu, useSample, x, y, w, h, s){
+  const v = truncateMax(valueFor(el, stu, useSample), el.maxChars);
+  const sep = el.sepText == null ? ': ' : el.sepText;
+  const labelTxt = applyCaps(normNL((el.label || '') + sep).replace(/\n/g, ' '), el.caps);
+  const valTxt = applyCaps(normNL((el.prefix || '') + v + (el.suffix || '')).replace(/\n/g, ' '), el.caps);
+  if(labelTxt === '' && valTxt === '') return;
+
+  const boxWmm = w / s, boxHmm = h / s;
+  const padX = (el.padX || 0) * s, padY = (el.padY || 0) * s;
+  const Lp = layoutPairWrap(ctx, el, labelTxt, valTxt, boxWmm, boxHmm);
+  const labelSize = Lp.labelSizeMm * s, valSize = Lp.valSizeMm * s;
+  const lh = el.lh || 1.2;
+  const hs = hScale(el), vs = vScale(el);
+
+  const labelFont = el.labelFont || el.font;
+  const labelWeight = el.labelWeight || el.weight;
+  const labelItalic = el.labelItalic != null ? el.labelItalic : el.italic;
+  const labelColor = el.labelColor || el.color || '#16222F';
+  const valColor = el.color || '#16222F';
+  const labelEl = {font:labelFont, weight:labelWeight, italic:labelItalic};
+
+  ctx.save();
+  rrPath(ctx, x, y, w, h, (el.radius || 0) * s); ctx.clip();
+  ctx.textBaseline = 'alphabetic';
+  setLS(ctx, (el.ls || 0) * s);
+  setWS(ctx, (el.ws || 0) * s);
+
+  const baseSize = Math.max(labelSize, valSize);
+  const lineAdv = baseSize * lh * vs;
+  const blockH = Lp.lines.length * lineAdv;
+  let startY;
+  if(el.valign === 'top') startY = y + padY;
+  else if(el.valign === 'bottom') startY = y + h - padY - blockH;
+  else startY = y + (h - blockH)/2;
+  startY += (el.dy || 0) * s;
+
+  applyTextShadow(ctx, el, s);
+  const decor = [];
+
+  for(let i = 0; i < Lp.lines.length; i++){
+    const line = Lp.lines[i];
+    const ly = startY + i*lineAdv + baseSize*0.80*vs;
+    const widths = [];
+    let lineW = 0;
+    for(let j = 0; j < line.length; j++){
+      ctx.font = line[j].style === 'label' ? fontStr(labelEl, labelSize) : fontStr(el, valSize);
+      const ww = ctx.measureText(line[j].text).width;
+      widths.push(ww);
+      lineW += ww;
+      if(j > 0) lineW += ctx.measureText(' ').width;
+    }
+    lineW *= hs;
+
+    let lx;
+    if(el.align === 'center') lx = x + (w - lineW)/2;
+    else if(el.align === 'right') lx = x + w - padX - lineW;
+    else lx = x + padX;                              // left, and justify falls back to left here
+    lx += (el.dx || 0) * s;
+
+    let cx = lx;
+    const from = cx;
+    for(let j = 0; j < line.length; j++){
+      const wd = line[j];
+      const isLbl = wd.style === 'label';
+      ctx.font = isLbl ? fontStr(labelEl, labelSize) : fontStr(el, valSize);
+      ctx.fillStyle = isLbl ? labelColor : valColor;
+      drawRun(ctx, {strokeW:el.strokeW, strokeC:el.strokeC}, wd.text, cx, ly, hs, vs, s);
+      cx += widths[j] * hs;
+      if(j < line.length - 1) cx += ctx.measureText(' ').width * hs;
+    }
+    decor.push([from, lineW, ly]);
+  }
+  clearShadow(ctx);
+
+  if(el.underline || el.strike){
+    ctx.strokeStyle = el.ulColor || valColor;
+    ctx.lineWidth = Math.max(0.35, el.ulW ? el.ulW * s : baseSize * 0.06);
+    for(const d of decor){
+      if(el.underline){
+        const uy = d[2] + (el.ulOff == null ? baseSize * 0.16 * vs : el.ulOff * s);
+        ctx.beginPath(); ctx.moveTo(d[0], uy); ctx.lineTo(d[0] + d[1], uy); ctx.stroke();
+      }
+      if(el.strike){
+        const sy = d[2] - baseSize * 0.30 * vs;
+        ctx.beginPath(); ctx.moveTo(d[0], sy); ctx.lineTo(d[0] + d[1], sy); ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
 }
 
 /* ---------------- ELEMENT DRAW ---------------- */
@@ -1529,10 +1829,16 @@ function drawElement(ctx, el, stu, s, useSample, W, H){
     ctx.rotate(el.rot * Math.PI/180);
     ctx.translate(-(x + w/2), -(y + h/2));
   }
+  if(el.flipH || el.flipV){
+    ctx.translate(x + w/2, y + h/2);
+    ctx.scale(el.flipH ? -1 : 1, el.flipV ? -1 : 1);
+    ctx.translate(-(x + w/2), -(y + h/2));
+  }
   ctx.globalAlpha = el.opacity == null ? 1 : el.opacity;
 
   if(el.kind === 'shape'){
     const sw = (el.strokeW || 0) * s;
+    if(el.dash > 0) ctx.setLineDash([el.dash * s, Math.max(el.dash, el.gap || el.dash) * s]);
     if(el.shape === 'line'){
       ctx.strokeStyle = el.fill || '#000';
       ctx.lineWidth = Math.max(0.4, h);
@@ -1547,6 +1853,7 @@ function drawElement(ctx, el, stu, s, useSample, W, H){
       if(el.fill){ ctx.fillStyle = el.fill; ctx.fill(); }
       if(sw > 0 && el.stroke){ ctx.lineWidth = sw; ctx.strokeStyle = el.stroke; ctx.stroke(); }
     }
+    ctx.setLineDash([]);
     ctx.restore(); return;
   }
 
@@ -1564,8 +1871,13 @@ function drawElement(ctx, el, stu, s, useSample, W, H){
     else if(rad > 0){ rrPath(ctx, x, y, w, h, rad); ctx.clip(); }
     if(el.boxFill){ ctx.fillStyle = el.boxFill; ctx.fillRect(x, y, w, h); }
     if(im && im.naturalWidth){
-      const f = fitRect(im.naturalWidth, im.naturalHeight, w, h, el.fit || 'cover');
-      ctx.drawImage(im, f.sx, f.sy, f.sw, f.sh, x + f.dx, y + f.dy, f.dw, f.dh);
+      const ins = Math.min((el.inset || 0) * s, Math.min(w, h) / 2 - 1);
+      const bw = Math.max(1, w - ins*2), bh = Math.max(1, h - ins*2);
+      const f = fitRect(im.naturalWidth, im.naturalHeight, bw, bh, el.fit || 'cover');
+      const flt = imgFilter(el, s);
+      if(flt) ctx.filter = flt;
+      ctx.drawImage(im, f.sx, f.sy, f.sw, f.sh, x + ins + f.dx, y + ins + f.dy, f.dw, f.dh);
+      ctx.filter = 'none';
     } else {
       // placeholder
       ctx.fillStyle = 'rgba(0,0,0,.07)'; ctx.fillRect(x, y, w, h);
@@ -1580,8 +1892,10 @@ function drawElement(ctx, el, stu, s, useSample, W, H){
     ctx.restore();
     if(el.borderW > 0 && el.borderC){
       ctx.lineWidth = el.borderW * s; ctx.strokeStyle = el.borderC;
+      if(el.borderDash > 0) ctx.setLineDash([el.borderDash * s, el.borderDash * s]);
       if(el.shape === 'circle'){ ctx.beginPath(); ctx.ellipse(x+w/2, y+h/2, w/2 - ctx.lineWidth/2, h/2 - ctx.lineWidth/2, 0, 0, Math.PI*2); ctx.stroke(); }
       else { rrPath(ctx, x + ctx.lineWidth/2, y + ctx.lineWidth/2, w - ctx.lineWidth, h - ctx.lineWidth, Math.max(0, rad - ctx.lineWidth/2)); ctx.stroke(); }
+      ctx.setLineDash([]);
     }
     ctx.restore(); return;
   }
@@ -1617,69 +1931,105 @@ function drawElement(ctx, el, stu, s, useSample, W, H){
   if(el.boxFill || (el.borderW > 0 && el.borderC)){
     rrPath(ctx, x, y, w, h, (el.radius || 0) * s);
     if(el.boxFill){ ctx.fillStyle = el.boxFill; ctx.fill(); }
-    if(el.borderW > 0 && el.borderC){ ctx.lineWidth = el.borderW * s; ctx.strokeStyle = el.borderC; ctx.stroke(); }
+    if(el.borderW > 0 && el.borderC){
+      ctx.lineWidth = el.borderW * s; ctx.strokeStyle = el.borderC;
+      if(el.borderDash > 0) ctx.setLineDash([el.borderDash * s, el.borderDash * s]);
+      ctx.stroke(); ctx.setLineDash([]);
+    }
   }
 
-  if(el.kind === 'pair' && el.wrap !== true){
-    drawPair(ctx, el, stu, useSample, x, y, w, h, s);
+  if(el.kind === 'pair'){
+    if(el.wrap !== true) drawPair(ctx, el, stu, useSample, x, y, w, h, s);
+    else drawPairWrapped(ctx, el, stu, useSample, x, y, w, h, s);
     ctx.restore();
     return;
   }
 
-  let raw;
-  if(el.kind === 'pair'){
-    const v = truncateMax(valueFor(el, stu, useSample), el.maxChars);
-    raw = (el.label || '') + (el.sepText == null ? ': ' : el.sepText) + (el.prefix||'') + v + (el.suffix||'');
-  } else {
-    const v = truncateMax(valueFor(el, stu, useSample), el.maxChars);
-    raw = (el.prefix || '') + v + (el.suffix || '');
-  }
+  const vTxt = truncateMax(valueFor(el, stu, useSample), el.maxChars);
+  const raw = (el.prefix || '') + vTxt + (el.suffix || '');
   if(raw === '' ) { ctx.restore(); return; }
 
   const L = layoutText(ctx, el, raw, w, h, s);
+  const hs = L.hs, vs = L.vs;
   ctx.save();
   rrPath(ctx, x, y, w, h, (el.radius || 0) * s); ctx.clip();
   ctx.font = fontStr(el, L.size);
   setLS(ctx, (el.ls || 0) * s);
+  setWS(ctx, (el.ws || 0) * s);
   ctx.fillStyle = el.color || '#16222F';
   ctx.textBaseline = 'alphabetic';
-  const blockH = L.lines.length * L.size * L.lh;
+
+  const lineAdv = L.size * L.lh * vs;               // vertical scale stretches the leading too
+  const blockH = L.lines.length * lineAdv;
   let startY;
   if(el.valign === 'top') startY = y + L.padY;
   else if(el.valign === 'bottom') startY = y + h - L.padY - blockH;
   else startY = y + (h - blockH)/2;
+  startY += (el.dy || 0) * s;                        // manual vertical nudge (mm)
 
-  if(el.shadow){
-    ctx.shadowColor = 'rgba(0,0,0,.42)';
-    ctx.shadowBlur = Math.max(1, 0.35*s);
-    ctx.shadowOffsetY = Math.max(0.5, 0.2*s);
-  }
+  applyTextShadow(ctx, el, s);
+
+  const innerW = Math.max(1, w - L.padX*2);
+  const decor = [];                                  // [startX, width, baselineY] per line
   for(let i = 0; i < L.lines.length; i++){
     const line = L.lines[i];
-    const lw = ctx.measureText(line).width;
-    let lx;
-    if(el.align === 'center') lx = x + (w - lw)/2;
-    else if(el.align === 'right') lx = x + w - L.padX - lw;
-    else lx = x + L.padX;
-    const ly = startY + i*L.size*L.lh + L.size*0.80;
-    if(el.strokeW > 0 && el.strokeC){
-      ctx.lineWidth = el.strokeW * s; ctx.strokeStyle = el.strokeC;
-      ctx.lineJoin = 'round'; ctx.strokeText(line, lx, ly);
+    const ly = startY + i*lineAdv + L.size*0.80*vs;
+    const lw = ctx.measureText(line).width * hs;
+    const canJustify = el.align === 'justify' && !L.hard[i] && line.indexOf(' ') > 0;
+
+    if(canJustify){
+      const words = line.split(' ').filter(Boolean);
+      let wordsW = 0;
+      for(const wd of words) wordsW += ctx.measureText(wd).width * hs;
+      const gap = words.length > 1 ? (innerW - wordsW) / (words.length - 1) : 0;
+      let cx = x + L.padX + (el.dx || 0) * s;
+      const from = cx;
+      for(const wd of words){
+        drawRun(ctx, el, wd, cx, ly, hs, vs, s);
+        cx += ctx.measureText(wd).width * hs + gap;
+      }
+      decor.push([from, innerW, ly]);
+    } else {
+      let lx;
+      if(el.align === 'center') lx = x + (w - lw)/2;
+      else if(el.align === 'right') lx = x + w - L.padX - lw;
+      else lx = x + L.padX;                          // left and justified-last-line
+      lx += (el.dx || 0) * s;                        // manual horizontal nudge (mm)
+      drawRun(ctx, el, line, lx, ly, hs, vs, s);
+      decor.push([lx, lw, ly]);
     }
-    ctx.fillText(line, lx, ly);
+  }
+  clearShadow(ctx);
+
+  if(el.underline || el.strike){
+    ctx.strokeStyle = el.ulColor || el.color || '#16222F';
+    ctx.lineWidth = Math.max(0.35, el.ulW ? el.ulW * s : L.size * 0.06);
+    for(const d of decor){
+      if(el.underline){
+        const uy = d[2] + (el.ulOff == null ? L.size * 0.16 * vs : el.ulOff * s);
+        ctx.beginPath(); ctx.moveTo(d[0], uy); ctx.lineTo(d[0] + d[1], uy); ctx.stroke();
+      }
+      if(el.strike){
+        const sy = d[2] - L.size * 0.30 * vs;
+        ctx.beginPath(); ctx.moveTo(d[0], sy); ctx.lineTo(d[0] + d[1], sy); ctx.stroke();
+      }
+    }
   }
   ctx.restore();
-  if(el.underline){
-    ctx.save();
-    ctx.strokeStyle = el.color || '#16222F';
-    ctx.lineWidth = Math.max(0.5, L.size*0.06);
-    const lastY = startY + (L.lines.length-1)*L.size*L.lh + L.size*0.94;
-    const lw = ctx.measureText(L.lines[L.lines.length-1] || '').width;
-    let lx = el.align === 'center' ? x + (w-lw)/2 : el.align === 'right' ? x + w - L.padX - lw : x + L.padX;
-    ctx.beginPath(); ctx.moveTo(lx, lastY); ctx.lineTo(lx + lw, lastY); ctx.stroke();
-    ctx.restore();
-  }
   ctx.restore();
+}
+
+/* CSS filter string for an image element. Scaled blur so preview and the
+   300-dpi export blur by the same physical amount. */
+function imgFilter(el, s){
+  const p = [];
+  if(el.fBright != null && +el.fBright !== 100) p.push('brightness(' + el.fBright + '%)');
+  if(el.fContrast != null && +el.fContrast !== 100) p.push('contrast(' + el.fContrast + '%)');
+  if(el.fSat != null && +el.fSat !== 100) p.push('saturate(' + el.fSat + '%)');
+  if(el.fGray) p.push('grayscale(' + el.fGray + '%)');
+  if(el.fSepia) p.push('sepia(' + el.fSepia + '%)');
+  if(el.fBlur) p.push('blur(' + (el.fBlur * s / 4) + 'px)');
+  return p.join(' ');
 }
 
 function fillPattern(pat, stu, useSample){
@@ -1831,20 +2181,72 @@ function nextFreeY(){
   return clamp(maxB + 2, 2, 88);
 }
 
+const FIELD_LISTS = {
+  student: ['Name','Class','Roll No','Father Name','DOB','Section','Blood Group'],
+  school:  ['School Name','Address','Phone','Email','Twitter','Instagram','Telegram','Facebook']
+};
+
+/* Fields that come with a ready-made icon in front — exactly like the
+   starter template's Phone field ("☎ 98765 43210"). Add one of these fields
+   and the icon is already sitting in "Prefix", no extra typing needed;
+   change or clear it any time from the field's own Prefix box. */
+const FIELD_ICON_PREFIX = {
+  'Phone':'☎ ', 'Mobile':'☎ ',
+  'Email':'✉ ',
+  'Twitter':'🐦 ',
+  'Instagram':'📷 ',
+  'Telegram':'✈ ',
+  'Facebook':'📘 '
+};
+
+/* "Student field" / "School field" buttons: instead of silently picking the
+   next name off a fixed list, open a picker showing only the names from that
+   list which are NOT already on the template — so nothing already added
+   shows up again. "Fixed text" (src === 'static') skips the picker and adds
+   straight away, same as before. */
+let fieldPickSrc = null;
 function addText(src){
-  const fields = src === 'student' ? ['Name','Class','Roll No','Father Name','DOB'] : ['School Name','Address','Phone'];
+  if(src === 'static') return addTextField('static', '');
+  fieldPickSrc = src;
+  const list = FIELD_LISTS[src] || [];
   const used = src === 'student' ? studentFields() : schoolTextFields();
-  const field = fields.find(f => !used.includes(f)) || (src === 'student' ? 'Field ' + (used.length+1) : 'School ' + (used.length+1));
+  const avail = list.filter(f => !used.includes(f));
+  $('fieldOvlTitle').textContent = (src === 'student' ? 'Student field chuno' : 'School field chuno');
+  const box = $('fieldOvlList');
+  if(!avail.length){
+    box.innerHTML = '';
+    $('fieldOvlEmpty').style.display = 'block';
+  } else {
+    $('fieldOvlEmpty').style.display = 'none';
+    box.innerHTML = avail.map(f =>
+      `<button class="icon-btn" style="flex-direction:row;justify-content:center;padding:10px 6px" onclick="pickTextField('${esc(f)}')">${FIELD_ICON_PREFIX[f] ? esc(FIELD_ICON_PREFIX[f].trim()) + ' ' : ''}${esc(f)}</button>`
+    ).join('');
+  }
+  $('fieldOvl').classList.add('on');
+}
+function closeFieldPicker(){
+  $('fieldOvl').classList.remove('on');
+  fieldPickSrc = null;
+}
+function pickTextField(field){
+  const src = fieldPickSrc;
+  closeFieldPicker();
+  addTextField(src, field);
+}
+function addTextField(src, field){
   const e = baseEl('text', {
     src: src,
     field: (src === 'static') ? '' : field,
     text: src === 'static' ? 'Fixed text' : '',
     x:8, y:nextFreeY(), w:84, h:7,
     font:'Poppins', size:3.2, weight:600, italic:false, color:'#16222F',
-    align: 'left', valign:'middle', ls:0, lh:1.2, caps:'none',
-    wrap:false, fit:'shrink', maxLines:1, padX:0.4, padY:0.2, radius:0,
-    boxFill:'', borderW:0, borderC:'#16222F', shadow:false, underline:false, strokeW:0, strokeC:'#ffffff',
-    prefix:'', suffix:''
+    align: 'left', valign:'middle', ls:0, ws:0, lh:1.2, caps:'none',
+    wrap:false, fit:'shrink', maxLines:1, ellipsis:true, padX:0.4, padY:0.2, radius:0,
+    hs:100, vs:100, dx:0, dy:0,
+    boxFill:'', borderW:0, borderC:'#16222F', borderDash:0,
+    shadow:false, shColor:'#000000', shBlur:0.35, shA:0.42, shX:0, shY:0.2,
+    underline:false, strike:false, ulW:0, strokeW:0, strokeC:'#ffffff',
+    flipH:false, flipV:false, prefix: FIELD_ICON_PREFIX[field] || '', suffix:''
   });
   e.name = src === 'static' ? 'Text · Fixed' : (src === 'student' ? 'Student · ' : 'School · ') + e.field;
   pushEl(e);
@@ -1873,15 +2275,19 @@ function confirmAddPair(){
               S.sides[S.side === 'front' ? 'back' : 'front'].els.find(x => x.kind === 'pair');
   const styleDefaults = {
     font:'Inter', weight:500, italic:false, color:'#2B3A4A', size:2.5,
-    align:'left', valign:'middle', ls:0, lh:1.15, caps:'none',
-    wrap:false, fit:'shrink', maxLines:1, padX:0, padY:0,
+    align:'left', valign:'middle', ls:0, ws:0, lh:1.15, caps:'none',
+    wrap:false, fit:'shrink', maxLines:1, ellipsis:true, padX:0, padY:0,
+    hs:100, vs:100, dx:0, dy:0, strike:false,
     labelFont:'Inter', labelWeight:500, labelSize:2.5, labelColor:'#2B3A4A', labelColW:0,
     underline:false, shadow:false, strokeW:0, strokeC:'#ffffff'
   };
   const style = ref ? {
     font:ref.font, weight:ref.weight, italic:ref.italic, color:ref.color, size:ref.size,
-    align:ref.align, valign:ref.valign, ls:ref.ls, lh:ref.lh, caps:ref.caps,
-    wrap:ref.wrap, fit:ref.fit, maxLines:ref.maxLines, padX:ref.padX, padY:ref.padY,
+    align:ref.align, valign:ref.valign, ls:ref.ls, ws:ref.ws || 0, lh:ref.lh, caps:ref.caps,
+    wrap:ref.wrap, fit:ref.fit, maxLines:ref.maxLines, ellipsis:ref.ellipsis !== false,
+    padX:ref.padX, padY:ref.padY,
+    hs:ref.hs == null ? 100 : ref.hs, vs:ref.vs == null ? 100 : ref.vs,
+    dx:ref.dx || 0, dy:ref.dy || 0, strike:!!ref.strike,
     labelFont: ref.labelFont || ref.font, labelWeight: ref.labelWeight || ref.weight,
     labelSize: ref.labelSize != null ? ref.labelSize : ref.size,
     labelColor: ref.labelColor || ref.color, labelColW: ref.labelColW || 0,
@@ -2335,6 +2741,11 @@ function fldSel(label, prop, val, opts){
       return `<option value="${esc(v)}" ${String(val) === String(v) ? 'selected' : ''}>${esc(t)}</option>`;
     }).join('')}</select></div>`;
 }
+function fldNumR(label, prop, val, step, min, max){
+  return `<div class="fld"><label class="lb">${label}</label>
+    <input class="in" type="number" value="${val}" step="${step||1}" ${min!=null?'min='+min:''} ${max!=null?'max='+max:''}
+      oninput="setProp('${prop}',parseFloat(this.value)||0)" onchange="renderProps()"></div>`;
+}
 function fldText(label, prop, val, ph){
   return `<div class="fld"><label class="lb">${label}</label>
     <input class="in" value="${esc(val||'')}" placeholder="${esc(ph||'')}" oninput="setProp('${prop}',this.value)"></div>`;
@@ -2343,6 +2754,35 @@ function fldChk(label, prop, val){
   return `<label class="hint" style="display:flex;gap:6px;align-items:center;cursor:pointer;margin:4px 0">
     <input type="checkbox" ${val ? 'checked' : ''} onchange="setProp('${prop}',this.checked)"> ${label}</label>`;
 }
+function fldArea(label, prop, val, rows, hint){
+  return `<div class="fld"><label class="lb">${label}</label>
+    <textarea class="in" rows="${rows||3}" spellcheck="false"
+      oninput="setProp('${prop}',this.value)"
+      onkeydown="event.stopPropagation()">${esc(val||'')}</textarea>
+    ${hint ? `<div class="hint" style="margin-top:4px">${hint}</div>` : ''}</div>`;
+}
+/* slider + number box that stay in sync, for the percentage-style controls */
+function fldRange(label, prop, val, min, max, step, unit){
+  const u = unit == null ? '%' : unit;
+  return `<div class="fld"><label class="lb">${label} — <b class="rgv">${val}${u}</b></label>
+    <div class="row" style="align-items:center;gap:6px">
+      <input class="in" type="range" min="${min}" max="${max}" step="${step}" value="${val}"
+        oninput="syncRange(this,'${prop}','${u}')">
+      <input class="in" type="number" style="flex:0 0 72px;max-width:72px" min="${min}" max="${max}" step="${step}" value="${val}"
+        oninput="syncRange(this,'${prop}','${u}')">
+    </div></div>`;
+}
+function syncRange(inp, prop, unit){
+  const f = inp.closest('.fld');
+  f.querySelectorAll('input').forEach(o => { if(o !== inp) o.value = inp.value; });
+  const lb = f.querySelector('.rgv');
+  if(lb) lb.textContent = inp.value + (unit || '');
+  setProp(prop, parseFloat(inp.value) || 0);
+}
+/* Props whose value changes which *other* controls should be on screen.
+   Changing one of these repaints the panel; everything else leaves the panel
+   alone so sliders and text boxes never lose focus mid-edit. */
+const RERENDER_PROPS = new Set(['src','shape','shadow','underline','strike','fit','wrap','align']);
 
 function setProp(prop, val){
   const list = sel.map(i => els().find(x => x.id === i)).filter(Boolean);
@@ -2351,7 +2791,23 @@ function setProp(prop, val){
     if(prop === 'field' || prop === 'label' || prop === 'src') renameEl(e);
   }
   drawStage(); renderLayers(); renderCoordMap();
+  if(RERENDER_PROPS.has(prop)){ clearTimeout(window._reT); window._reT = setTimeout(renderProps, 0); }
   clearTimeout(window._propT); window._propT = setTimeout(() => { snapshot(); buildSchoolForm(); buildManualForm(); buildPhotoKeys(); }, 400);
+}
+/* Apply the same value to every selected element — used by the quick buttons. */
+function setProps(obj){
+  const list = sel.map(i => els().find(x => x.id === i)).filter(Boolean);
+  for(const e of list) Object.assign(e, obj);
+  drawStage(); renderLayers(); renderCoordMap(); renderProps();
+  clearTimeout(window._propT); window._propT = setTimeout(snapshot, 300);
+}
+function resetTextScale(){ setProps({hs:100, vs:100}); toast('Text width/height 100% par reset'); }
+/* Line elements store their thickness as a % of card height; the UI shows mm. */
+function setLineThk(mm){
+  const list = sel.map(i => els().find(x => x.id === i)).filter(Boolean);
+  for(const e of list) e.h = round(Math.max(0.02, mm) / S.card.h * 100, 4);
+  drawStage(); renderCoordMap(); readCoord();
+  clearTimeout(window._propT); window._propT = setTimeout(snapshot, 350);
 }
 function renameEl(e){
   if(e.kind === 'text') e.name = (e.src === 'static' ? 'Text · Fixed' : (e.src === 'student' ? 'Student · ' : 'School · ') + e.field);
@@ -2382,13 +2838,29 @@ function renderProps(){
       ${fldNum('Rotation °', 'rot', e.rot || 0, 1)}
       ${fldNum('Opacity', 'opacity', e.opacity == null ? 1 : e.opacity, 0.05, 0, 1)}
     </div>
-    ${fldText('Layer name', 'name', e.name)}`;
+    ${fldText('Layer name', 'name', e.name)}
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${fldChk('Lock (drag band)', 'locked', e.locked)}
+      ${fldChk('Hide', 'hidden', e.hidden)}
+      ${fldChk('Flip H', 'flipH', e.flipH)}
+      ${fldChk('Flip V', 'flipV', e.flipV)}
+    </div>
+    <div class="row" style="margin-top:4px;flex-wrap:wrap;gap:6px">
+      <button class="btn xs" onclick="fitToSafe()">Fit width to safe area</button>
+      <button class="btn xs" onclick="squareEl()">Make square</button>
+    </div>`;
 
   if(e.kind === 'text' || e.kind === 'pair'){
     h += `<div class="grp">Content</div>`;
     h += fldSel('Source', 'src', e.src, [['student','Student field'],['school','School field'],['static','Fixed text']]);
-    if(e.src === 'static') h += `<div class="fld"><label class="lb">Text</label>
-      <textarea class="in" rows="2" oninput="setProp('text',this.value)">${esc(e.text||'')}</textarea></div>`;
+    if(e.src === 'static'){
+      h += fldArea('Text  (Enter = nayi line)', 'text', e.text, 4,
+        'Enter dabate hi nayi line ban jayegi. Sheet/Excel me <code>\\n</code> likhoge to wo bhi line break ban jayega.');
+      h += `<div class="row" style="margin:-6px 0 10px">
+        <button class="btn xs" onclick="setProp('wrap',true);renderProps()">Auto-wrap on</button>
+        <button class="btn xs" onclick="setProps({maxLines:0})">Unlimited lines</button>
+      </div>`;
+    }
     else h += fldText('Field name', 'field', e.field, 'e.g. Name');
     if(e.kind === 'pair'){
       h += fldText('Label', 'label', e.label);
@@ -2417,26 +2889,85 @@ function renderProps(){
       ${fldSel('Weight', 'weight', e.weight, [[300,'Light'],[400,'Regular'],[500,'Medium'],[600,'Semibold'],[700,'Bold'],[800,'Extra bold'],[900,'Black']])}
     </div>`;
     h += fldColor('Colour', 'color', e.color);
+
+    /* ----- CorelDraw-style non-uniform scaling ----- */
+    h += `<div class="grp">Stretch — text ki width &amp; height</div>`;
+    h += fldRange('Text height (vertical stretch)', 'vs', e.vs == null ? 100 : e.vs, 20, 400, 1);
+    h += fldRange('Text width (horizontal stretch)', 'hs', e.hs == null ? 100 : e.hs, 20, 400, 1);
+    h += `<div class="row" style="margin:-4px 0 6px;flex-wrap:wrap;gap:6px">
+      <button class="btn xs" onclick="resetTextScale()">Reset 100 / 100</button>
+      <button class="btn xs" onclick="setProps({vs:130})">Tall 130%</button>
+      <button class="btn xs" onclick="setProps({vs:75})">Flat 75%</button>
+      <button class="btn xs" onclick="setProps({hs:80})">Condensed 80%</button>
+    </div>`;
+    h += `<div class="hint" style="margin-bottom:6px">CorelDraw jaisa: <b>Text height</b> sirf akshar ki lambai badhata/ghatata hai, width waisi hi rehti hai. Dono 100% = normal font.</div>`;
+
+    h += `<div class="grp">Lines &amp; spacing</div>`;
     h += `<div class="grid2">
-      ${fldSel('Align', 'align', e.align, [['left','Left'],['center','Center'],['right','Right']])}
-      ${fldSel('Vertical', 'valign', e.valign, [['top','Top'],['middle','Middle'],['bottom','Bottom']])}
+      ${fldNum('Max lines (0 = unlimited)', 'maxLines', e.maxLines == null ? 0 : e.maxLines, 1, 0, 40)}
+      ${fldNum('Line height', 'lh', e.lh || 1.2, 0.05, 0.6)}
+    </div>`;
+    h += `<div class="hint" style="margin:-4px 0 7px">Itni hi lines banengi. <b>Overflow = Shrink</b> ho to text apne aap chhota hoke utni lines me aa jayega; <b>Clip</b> pe extra lines kat jayengi.</div>`;
+    h += `<div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${fldChk('Auto-wrap (line apne aap todo)', 'wrap', e.wrap !== false)}
+      ${fldChk('Kata hua text par "…" lagao', 'ellipsis', e.ellipsis !== false)}
+    </div>`;
+    h += `<div class="row" style="margin:6px 0;flex-wrap:wrap;gap:6px">
+      <button class="btn xs" onclick="setProps({maxLines:1,wrap:false})">1 line</button>
+      <button class="btn xs" onclick="setProps({maxLines:2,wrap:true})">2 lines</button>
+      <button class="btn xs" onclick="setProps({maxLines:3,wrap:true})">3 lines</button>
+      <button class="btn xs" onclick="setProps({maxLines:0,wrap:true})">Unlimited</button>
     </div>`;
     h += `<div class="grid2">
       ${fldNum('Letter space (mm)', 'ls', e.ls || 0, 0.05)}
-      ${fldNum('Line height', 'lh', e.lh || 1.2, 0.05, 0.6)}
+      ${fldNum('Word space (mm)', 'ws', e.ws || 0, 0.05)}
+    </div>`;
+
+    h += `<div class="grp">Alignment &amp; case</div>`;
+    h += `<div class="grid2">
+      ${fldSel('Align', 'align', e.align, [['left','Left'],['center','Center'],['right','Right'],['justify','Justify']])}
+      ${fldSel('Vertical', 'valign', e.valign, [['top','Top'],['middle','Middle'],['bottom','Bottom']])}
+    </div>`;
+    h += `<div class="grid2">
+      ${fldNum('Nudge X (mm)', 'dx', e.dx || 0, 0.1)}
+      ${fldNum('Nudge Y (mm)', 'dy', e.dy || 0, 0.1)}
     </div>`;
     h += `<div class="grid2">
       ${fldSel('Caps', 'caps', e.caps, [['none','Normal'],['upper','UPPERCASE'],['lower','lowercase'],['title','Title Case']])}
       ${fldSel('Overflow', 'fit', e.fit, [['shrink','Shrink to fit'],['clip','Clip'],['none','Let it spill']])}
     </div>`;
+
+    h += `<div class="grp">Decoration</div>`;
     h += `<div style="display:flex;gap:10px;flex-wrap:wrap">
-      ${fldChk('Wrap lines', 'wrap', e.wrap !== false)}
       ${fldChk('Italic', 'italic', e.italic)}
       ${fldChk('Underline', 'underline', e.underline)}
+      ${fldChk('Strikethrough', 'strike', e.strike)}
       ${fldChk('Shadow', 'shadow', e.shadow)}
     </div>`;
+    if(e.underline || e.strike){
+      h += `<div class="grid2">
+        ${fldNum('Line thickness (mm, 0 = auto)', 'ulW', e.ulW || 0, 0.02, 0)}
+        ${fldNum('Underline gap (mm)', 'ulOff', e.ulOff == null ? '' : e.ulOff, 0.05)}
+      </div>`;
+      h += fldColor('Line colour', 'ulColor', e.ulColor || e.color);
+    }
+    if(e.shadow){
+      h += fldColor('Shadow colour', 'shColor', e.shColor || '#000000');
+      h += `<div class="grid2">
+        ${fldNum('Shadow blur (mm)', 'shBlur', e.shBlur == null ? 0.35 : e.shBlur, 0.05, 0)}
+        ${fldNum('Shadow opacity', 'shA', e.shA == null ? 0.42 : e.shA, 0.02, 0, 1)}
+      </div>`;
+      h += `<div class="grid2">
+        ${fldNum('Shadow X (mm)', 'shX', e.shX || 0, 0.05)}
+        ${fldNum('Shadow Y (mm)', 'shY', e.shY == null ? 0.2 : e.shY, 0.05)}
+      </div>`;
+    }
+    h += `<div class="grid2">
+      ${fldNumR('Outline (mm)', 'strokeW', e.strokeW || 0, 0.05, 0)}
+      ${e.strokeW > 0 ? fldColor('Outline colour', 'strokeC', e.strokeC) : ''}
+    </div>`;
     if(e.kind === 'pair' && e.wrap === true)
-      h += `<div class="hint" style="margin-top:6px">Wrap lines ON hone par label aur value ek hi style me dikhenge (upar ki "Label style" tab tab hi kaam karti hai jab wrap OFF ho).</div>`;
+      h += `<div class="hint" style="margin-top:6px">Wrap ON hai — <b>Label style</b> aur value style (font/size/colour) ab bhi alag-alag lagti hain, chahe address kitni bhi lines me tooté. (Sirf <b>Align: Justify</b> is case me left ki tarah kaam karta hai.)</div>`;
 
     h += `<div class="grp">Box</div>`;
     h += `<div class="fld"><label class="lb">Fill (blank = transparent)</label>
@@ -2448,13 +2979,12 @@ function renderProps(){
     </div>`;
     h += `<div class="grid2">
       ${fldNum('Corner (mm)', 'radius', e.radius || 0, 0.2, 0)}
-      ${fldNum('Border (mm)', 'borderW', e.borderW || 0, 0.1, 0)}
+      ${fldNumR('Border (mm)', 'borderW', e.borderW || 0, 0.1, 0)}
     </div>`;
-    if(e.borderW > 0) h += fldColor('Border colour', 'borderC', e.borderC);
-    h += `<div class="grid2">
-      ${fldNum('Outline (mm)', 'strokeW', e.strokeW || 0, 0.05, 0)}
-      ${e.strokeW > 0 ? fldColor('Outline colour', 'strokeC', e.strokeC) : ''}
-    </div>`;
+    if(e.borderW > 0){
+      h += fldColor('Border colour', 'borderC', e.borderC);
+      h += fldNum('Border dash (mm, 0 = solid)', 'borderDash', e.borderDash || 0, 0.1, 0);
+    }
   }
 
   if(e.kind === 'image'){
@@ -2467,14 +2997,28 @@ function renderProps(){
     </div>`;
     if(e.shape === 'rounded') h += fldNum('Corner (mm)', 'radius', e.radius || 0, 0.2, 0);
     h += `<div class="grid2">
-      ${fldNum('Border (mm)', 'borderW', e.borderW || 0, 0.1, 0)}
+      ${fldNumR('Border (mm)', 'borderW', e.borderW || 0, 0.1, 0)}
       ${e.borderW > 0 ? fldColor('Border colour', 'borderC', e.borderC) : ''}
     </div>`;
     h += `<div class="fld"><label class="lb">Backing fill</label>
       <div class="row"><input class="in" type="color" value="${e.boxFill || '#ffffff'}" oninput="setProp('boxFill',this.value)">
       <button class="btn sm" onclick="setProp('boxFill','')">Clear</button></div></div>`;
+    h += fldNum('Inset / inner padding (mm)', 'inset', e.inset || 0, 0.1, 0);
+    if(e.borderW > 0) h += fldNum('Border dash (mm, 0 = solid)', 'borderDash', e.borderDash || 0, 0.1, 0);
+
+    h += `<div class="grp">Adjust</div>`;
+    h += fldRange('Brightness', 'fBright', e.fBright == null ? 100 : e.fBright, 0, 200, 1);
+    h += fldRange('Contrast', 'fContrast', e.fContrast == null ? 100 : e.fContrast, 0, 200, 1);
+    h += fldRange('Saturation', 'fSat', e.fSat == null ? 100 : e.fSat, 0, 200, 1);
+    h += fldRange('Grayscale', 'fGray', e.fGray || 0, 0, 100, 1);
+    h += fldRange('Sepia', 'fSepia', e.fSepia || 0, 0, 100, 1);
+    h += fldRange('Blur', 'fBlur', e.fBlur || 0, 0, 20, 0.5, '');
+    h += `<div class="row" style="margin-top:4px">
+      <button class="btn xs" onclick="setProps({fBright:100,fContrast:100,fSat:100,fGray:0,fSepia:0,fBlur:0})">Reset adjust</button>
+      <button class="btn xs" onclick="setProps({fGray:100})">Black &amp; white</button>
+    </div>`;
     if(e.src === 'student')
-      h += `<div class="hint">Photo tab 3 me upload hongi. Aspect ratio 3:4 (passport) best rehta hai.</div>`;
+      h += `<div class="hint" style="margin-top:8px">Photo tab 3 me upload hongi. Aspect ratio 3:4 (passport) best rehta hai.</div>`;
   }
 
   if(e.kind === 'shape'){
@@ -2483,11 +3027,19 @@ function renderProps(){
     h += fldColor(e.shape === 'line' ? 'Line colour' : 'Fill', 'fill', e.fill);
     if(e.shape !== 'line'){
       h += fldNum('Corner (mm)', 'radius', e.radius || 0, 0.2, 0);
-      h += fldNum('Stroke (mm)', 'strokeW', e.strokeW || 0, 0.1, 0);
+      h += fldNumR('Stroke (mm)', 'strokeW', e.strokeW || 0, 0.1, 0);
       if(e.strokeW > 0) h += fldColor('Stroke colour', 'stroke', e.stroke);
     } else {
       h += fldSel('End cap', 'cap', e.cap, [['butt','Flat'],['round','Round']]);
+      h += `<div class="fld"><label class="lb">Thickness (mm)</label>
+        <input class="in" type="number" step="0.05" min="0.05" value="${round(e.h/100*S.card.h, 2)}"
+          oninput="setLineThk(parseFloat(this.value)||0.05)"></div>`;
+      h += `<div class="hint" style="margin:-6px 0 8px">Line ki motai millimetre me — card size badalne par bhi bilkul yahi motai print hogi.</div>`;
     }
+    h += `<div class="grid2">
+      ${fldNumR('Dash (mm, 0 = solid)', 'dash', e.dash || 0, 0.2, 0)}
+      ${e.dash > 0 ? fldNum('Gap (mm)', 'gap', e.gap || e.dash, 0.2, 0) : ''}
+    </div>`;
   }
 
   if(e.kind === 'qr' || e.kind === 'barcode'){
@@ -2525,6 +3077,23 @@ function renderProps(){
       <button class="btn sm dn" onclick="delSel()">Delete</button>
     </div>`;
   box.innerHTML = h;
+}
+
+/* Stretches the selected elements across the safe printable width. */
+function fitToSafe(){
+  const safe = parseFloat(($('cardSafe') || {}).value) || 0;
+  const mx = safe / S.card.w * 100;
+  const list = sel.map(i => els().find(x => x.id === i)).filter(Boolean);
+  if(!list.length) return toast('Pehle element select karo', 'err');
+  for(const e of list){ e.x = round(mx, 3); e.w = round(100 - mx*2, 3); }
+  snapshot(); refreshAll();
+}
+/* Makes the box visually square in millimetres (not in percent). */
+function squareEl(){
+  const list = sel.map(i => els().find(x => x.id === i)).filter(Boolean);
+  if(!list.length) return toast('Pehle element select karo', 'err');
+  for(const e of list) e.h = round(e.w * (S.card.w / S.card.h), 3);
+  snapshot(); refreshAll();
 }
 
 function moveLayer(dir){
@@ -3014,7 +3583,10 @@ function buildSchoolForm(){
       const long = /address|name/i.test(f);
       h += `<div class="fld" ${long ? 'style="grid-column:1/-1"' : ''}>
         <label class="lb">${esc(f)}</label>
-        <input class="in" data-f="${esc(f)}" value="${esc(S.school[f] || '')}" oninput="setSchool(this.dataset.f,this.value)" placeholder="${esc(sampleFor(f))}">
+        <textarea class="in au" rows="1" data-f="${esc(f)}" spellcheck="false"
+          oninput="setSchool(this.dataset.f,this.value);autoGrow(this)"
+          onkeydown="event.stopPropagation()"
+          placeholder="${esc(sampleFor(f))}">${esc(S.school[f] || '')}</textarea>
       </div>`;
     }
     h += `</div>`;
@@ -3033,8 +3605,11 @@ function buildSchoolForm(){
     }
     h += `</div>`;
   }
-  h += `<div class="sep"></div><div class="hint">Ye values sab cards par same aayengi. Jo field yahan khaali chhodoge wo card par bhi khaali rahega.</div>`;
+  h += `<div class="sep"></div><div class="hint">Ye values sab cards par same aayengi. Jo field yahan khaali chhodoge wo card par bhi khaali rahega.<br>
+    Kisi bhi box me <span class="kbd">Enter</span> dabao to us field ka text nayi line se shuru ho jayega — card par bhi wahi break dikhega
+    (us element me "Auto-wrap" on aur "Max lines" 0 ya 2+ rakhna).</div>`;
   box.innerHTML = h;
+  box.querySelectorAll('textarea.au').forEach(autoGrow);
 }
 function setSchool(f, v){
   if(v === '') delete S.school[f]; else S.school[f] = v;
@@ -3090,12 +3665,22 @@ function buildManualForm(){
   }
   box.innerHTML = f.map(x => `<div class="fld">
       <label class="lb">${esc(x)}</label>
-      <input class="in mf" data-f="${esc(x)}" placeholder="${esc(sampleFor(x))}">
+      <textarea class="in au mf" rows="1" data-f="${esc(x)}" spellcheck="false"
+        oninput="autoGrow(this)" onkeydown="event.stopPropagation()"
+        placeholder="${esc(sampleFor(x))}"></textarea>
     </div>`).join('') +
     (studentPhotoFields().length ? `<div class="fld">
       <label class="lb">Photo</label>
       <input class="in" type="file" accept="image/*" id="mfPhoto">
-    </div>` : '');
+    </div>` : '') +
+    `<div class="hint"><span class="kbd">Enter</span> = nayi line. Address jaise fields me kaam aata hai.</div>`;
+  box.querySelectorAll('textarea.au').forEach(autoGrow);
+}
+/* Grows a textarea to fit its content so multi-line values stay visible. */
+function autoGrow(t){
+  if(!t) return;
+  t.style.height = 'auto';
+  t.style.height = Math.min(220, t.scrollHeight + 2) + 'px';
 }
 async function addManualStudent(){
   const inputs = [...document.querySelectorAll('#manualForm .mf')];
@@ -3457,12 +4042,12 @@ function renderStudents(){
         ${needPhoto ? `<td>${s.photo
           ? `<img class="thumb" src="${s.photo}" title="Click to replace" onclick="rowPhotoPick('${s.id}')">`
           : `<div class="thumb miss" title="Click to add" onclick="rowPhotoPick('${s.id}')">+</div>`}</td>` : ''}
-        ${f.map(x => `<td class="edit" contenteditable data-f="${esc(x)}" data-s="${s.id}" onblur="editCell(this.dataset.s,this.dataset.f,this.textContent)">${esc(s.data[x] || '')}</td>`).join('')}
+        ${f.map(x => `<td class="edit" contenteditable data-f="${esc(x)}" data-s="${s.id}" onblur="editCell(this.dataset.s,this.dataset.f,this.innerText)">${esc(s.data[x] || '')}</td>`).join('')}
         <td><button class="btn xs dn" onclick="delStudent('${s.id}')">×</button></td>
       </tr>`;
     }).join('')}
   </tbody></table></div>
-  <div class="hint" style="margin-top:8px">Kisi bhi cell pe click karke seedha edit kar sakte ho. Photo cell pe click = us student ki photo badlo.</div>`;
+  <div class="hint" style="margin-top:8px">Kisi bhi cell pe click karke seedha edit kar sakte ho — <span class="kbd">Shift</span>+<span class="kbd">Enter</span> se us cell me nayi line bhi bana sakte ho. Photo cell pe click = us student ki photo badlo.</div>`;
 }
 function editCell(id, field, val){
   const s = S.students.find(x => x.id === id);
