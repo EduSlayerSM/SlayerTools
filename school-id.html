@@ -6,7 +6,7 @@
 <title>ID Card Studio 2.0 — Bulk School ID Generator | Developed by Amar Bhardwaj</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Inter:wght@300;400;500;600;700;800&family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;0,900;1,400&family=Oswald:wght@300;400;500;600;700&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Merriweather:wght@300;400;700;900&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Rubik:wght@300;400;500;600;700&family=Anton&family=Bebas+Neue&family=Teko:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@300;400;500;600;700;800&family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Courier+Prime:wght@400;700&family=Archivo+Black&family=Cinzel:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Inter:wght@300;400;500;600;700;800&family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;0,900;1,400&family=Oswald:wght@300;400;500;600;700&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Merriweather:wght@300;400;700;900&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Rubik:wght@300;400;500;600;700&family=Anton&family=Bebas+Neue&family=Teko:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@300;400;500;600;700;800&family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Courier+Prime:wght@400;700&family=Archivo+Black&family=Cinzel:wght@400;500;600;700&family=Dancing+Script:wght@400;500;600;700&family=Pacifico&family=Great+Vibes&family=Abril+Fatface&family=Righteous&family=Staatliches&family=Quicksand:wght@300;400;500;600;700&family=Raleway:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Baloo+2:wght@400;500;600;700;800&family=Kalam:wght@300;400;700&family=Yeseva+One&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -749,6 +749,7 @@ table.coord tr.msel td{background:var(--blue-soft)}
               <button class="btn sm full" style="margin-top:6px" onclick="loadPasted()">Read pasted data</button>
             </div>
             <div class="hint" style="margin-top:8px">Sheet ke column names template field names se match hone chahiye. Nahi hue to mapping screen apne aap aa jayegi.</div>
+            <button class="btn sm dn full" style="margin-top:9px" onclick="clearStudents()">Clear uploaded sheet</button>
           </div>
         </div>
       </div>
@@ -1239,7 +1240,9 @@ function barcodeCanvas(text, w, h, showText, fmt){
 /* ---------------- FONTS ---------------- */
 const FONTS = ['DM Sans','Inter','Poppins','Roboto','Montserrat','Rubik','Oswald','Teko','Bebas Neue','Anton',
   'Archivo Black','Playfair Display','Merriweather','Lora','Cinzel','Courier Prime',
-  'Noto Sans Devanagari','Noto Serif Devanagari'];
+  'Noto Sans Devanagari','Noto Serif Devanagari',
+  'Dancing Script','Pacifico','Great Vibes','Abril Fatface','Righteous','Staatliches',
+  'Quicksand','Raleway','Baloo 2','Kalam','Yeseva One','Orbitron'];
 let fontsReady = false;
 async function ensureFonts(){
   if(fontsReady) return;
@@ -4076,10 +4079,13 @@ function deleteChecked(){
   toast(ids.length + ' deleted');
 }
 function clearStudents(){
-  if(!S.students.length) return;
-  if(!confirm('Saare students hat jayenge. Sure?')) return;
+  if(!S.students.length && !S.pendingRows) return toast('Pehle se khaali hai', 'ok');
+  if(!confirm('Saare students (upload ki gayi sheet samet) hat jayenge. Sure?')) return;
   S.students = [];
-  renderStudents(); markDone();
+  S.pendingRows = null; S.pendingCols = null;
+  $('mapBox').style.display = 'none';
+  renderStudents(); markDone(); updateStats();
+  toast('Saaf ho gaya', 'ok');
 }
 </script>
 <script>
