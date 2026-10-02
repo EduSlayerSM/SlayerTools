@@ -933,6 +933,10 @@ table.coord tr.msel td{background:var(--blue-soft)}
           <div class="fld"><label class="lb">Gap (mm)</label><input class="in" type="number" id="pGap" value="4" step="0.5" min="0" onchange="calcLayout()"></div>
         </div>
         <div class="fld">
+          <button class="btn sm full" onclick="autoFitMax()">⤢ Max cards per sheet (auto)</button>
+          <div class="hint" style="margin-top:4px">Margin/gap ko kam karke jitne zyada cards is card-size me A4 par fit ho sakte hain utne fit karega.</div>
+        </div>
+        <div class="fld">
           <label class="lb">Cut marks</label>
           <div class="seg">
             <button class="on" id="cmOn" onclick="setCut(1)">Show</button>
@@ -1873,7 +1877,7 @@ function drawElement(ctx, el, stu, s, useSample, W, H){
     if(im && im.naturalWidth){
       const ins = Math.min((el.inset || 0) * s, Math.min(w, h) / 2 - 1);
       const bw = Math.max(1, w - ins*2), bh = Math.max(1, h - ins*2);
-      const f = fitRect(im.naturalWidth, im.naturalHeight, bw, bh, el.fit || 'cover');
+      const f = fitRect(im.naturalWidth, im.naturalHeight, bw, bh, el.fit || 'contain');
       const flt = imgFilter(el, s);
       if(flt) ctx.filter = flt;
       ctx.drawImage(im, f.sx, f.sy, f.sw, f.sh, x + ins + f.dx, y + ins + f.dy, f.dw, f.dh);
@@ -2310,7 +2314,7 @@ function addImg(src){
     src, field,
     x: src === 'student' ? 30 : 6, y: src === 'student' ? 14 : 4,
     w: src === 'student' ? 40 : 16, h: src === 'student' ? 26 : 10,
-    fit:'cover', shape:'rect', radius:1, borderW:0.4, borderC:'#ffffff', boxFill:''
+    fit:'contain', shape:'rect', radius:1, borderW:0.4, borderC:'#ffffff', boxFill:''
   });
   e.name = (src === 'student' ? 'Photo · ' : 'Logo · ') + field;
   pushEl(e);
@@ -2354,7 +2358,7 @@ function confirmAddImg(){
     src, field: name,
     x: src === 'student' ? 30 : 6, y: src === 'student' ? 14 : 4,
     w: src === 'student' ? 40 : 16, h: src === 'student' ? 26 : 10,
-    fit:'cover', shape:'rect', radius:1, borderW:0.4, borderC:'#ffffff', boxFill:''
+    fit:'contain', shape:'rect', radius:1, borderW:0.4, borderC:'#ffffff', boxFill:''
   });
   e.name = (src === 'student' ? 'Photo · ' : 'Image · ') + name;
   pushEl(e);
@@ -3348,7 +3352,7 @@ function starterTemplate(){
       color:'#E8912B', align:'left', valign:'middle', ls:0.05, lh:1.15, caps:'upper', wrap:false, fit:'shrink',
       padX:0.2, padY:0, radius:0, boxFill:'', borderW:0, borderC:'#000', prefix:'Session ', suffix:'', name:'School · Session'});
 
-  mk({kind:'image', src:'student', field:'Photo', x:31, y:25, w:38, h:29, fit:'cover', shape:'rounded', radius:2,
+  mk({kind:'image', src:'student', field:'Photo', x:31, y:25, w:38, h:29, fit:'contain', shape:'rounded', radius:2,
       borderW:0, borderC:'#E8912B', boxFill:'#EEF1F5', name:'Photo · Photo'});
 
   mk({kind:'text', src:'student', field:'Name', x:5, y:56, w:90, h:6.4, font:'Poppins', size:3.6, weight:700,
@@ -4187,6 +4191,31 @@ function calcLayout(){
   drawSheetPreview();
   return {pw, ph, m, g, cols, rows, per};
 }
+/* Tries progressively smaller margins/gaps and keeps whichever combo yields
+   the most cards per sheet (ties broken by the largest margin+gap, so the
+   layout still looks tidy). Reports the real maximum possible for the
+   current card size — it won't invent cards that don't physically fit. */
+function autoFitMax(){
+  const [pw, ph] = pageDims();
+  let best = null;
+  for(let m = 10; m >= 2; m -= 1){
+    for(let g = 6; g >= 1; g -= 0.5){
+      const availW = pw - m*2, availH = ph - m*2;
+      const cols = Math.max(0, Math.floor((availW + g) / (S.card.w + g)));
+      const rows = Math.max(0, Math.floor((availH + g) / (S.card.h + g)));
+      const per = cols * rows;
+      if(!per) continue;
+      if(!best || per > best.per || (per === best.per && (m + g) > (best.m + best.g))){
+        best = {m, g, per, cols, rows};
+      }
+    }
+  }
+  if(!best){ toast('Is card size ke saath A4 par ek bhi card fit nahi ho raha', 'err'); return; }
+  $('pMargin').value = best.m;
+  $('pGap').value = best.g;
+  calcLayout();
+  toast(`Max mumkin: ${best.cols} × ${best.rows} = ${best.per} cards/sheet (card size: ${S.card.w}×${S.card.h}mm)`, 'ok');
+}
 function drawSheetPreview(){
   const [pw, ph] = pageDims();
   const m = parseFloat($('pMargin').value) || 0;
@@ -4547,7 +4576,7 @@ function init(){
   dropZone($('bgDrop'), files => files[0] && loadBg(files[0]));
   dropZone($('csvDrop'), files => files[0] && loadSheet(files[0]));
   dropZone($('photoDrop'), files => { if(files && files.length) loadPhotos(files); });
-  setOrient('p'); setCut(1);
+  setOrient('l'); setCut(1);
   HIST = []; HPOS = -1; snapshot();
   syncSideUI();
   window.addEventListener('resize', () => { if($('p0').classList.contains('on')) fitZoom(); });
